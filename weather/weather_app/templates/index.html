@@ -1,0 +1,25 @@
+<form method="POST">
+    {% csrf_token %}
+    <input type="text"
+           id="city-input"
+           name="city"
+           placeholder="Введите город"
+           value="{{ last_city }}">
+    <button type="submit">Показать погоду</button>
+</form>
+
+{% if weather %}
+<div class="weather-card">
+    <h2>{{ weather.city }}</h2>
+    <p>Температура: {{ weather.temperature }}°C</p>
+    <p>Скорость ветра: {{ weather.windspeed }} км/ч</p>
+</div>
+{% endif %}
+
+<script>
+$(function() {
+    $("#city-input").autocomplete({
+        source: "{% url 'autocomplete' %}"
+    });
+});
+</script>
