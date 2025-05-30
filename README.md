@@ -32,7 +32,12 @@
 `pip install -r requirements.txt`
 
 
-4. Запустите приложение:\
+4. Создание и активация виртуального окружения:\
+`virtualenv venv`\
+`.\venv\Scripts\activate`
+
+
+5. Запустите приложение:\
 `cd weather`\
 `python manage.py runserver`
 
