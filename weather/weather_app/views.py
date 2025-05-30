@@ -17,17 +17,18 @@ def index(request):
             # Обновляем историю поиска
             if city_name in search_history:
                 search_history.remove(city_name)  # Удаляем если уже есть
-            search_history.insert(0, city_name)  # Добавляем в начало
-            search_history = search_history[:3]  # Оставляем только 3 последних
-
-            # Сохраняем в сессию
-            request.session['search_history'] = search_history
 
             # Получаем координаты города
             geo_data = geocode_city(city_name)
             if not geo_data:
                 error = "Город не найден"
             else:
+                search_history.insert(0, city_name)  # Добавляем в начало
+                search_history = search_history[:3]  # Оставляем только 3 последних
+
+                # Сохраняем в сессию
+                request.session['search_history'] = search_history
+
                 # Получаем погоду
                 weather = get_weather(
                     geo_data['latitude'],
@@ -51,7 +52,7 @@ def index(request):
 def autocomplete(request):
     term = request.GET.get('term')
     if term:
-        # Выполняем запрос к API геокодинга
+        # Выполняем запрос к API
         response = requests.get(
             "https://geocoding-api.open-meteo.com/v1/search",
             params={"name": term, "count": 5, "language": "ru"}
@@ -79,7 +80,7 @@ def geocode_city(name):
 
 def get_weather(lat, lon):
     try:
-        # Получаем прогноз на 24 часа
+        # Получаем прогноз погоды
         response = requests.get(
             "https://api.open-meteo.com/v1/forecast",
             params={
@@ -96,7 +97,7 @@ def get_weather(lat, lon):
 
 
 def process_hourly_data(hourly):
-    """Обрабатываем данные о погоде по часам"""
+    # Обрабатываем данные о погоде по часам
     processed = []
     now = datetime.now()
     current_hour = now.hour
