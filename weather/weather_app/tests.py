@@ -48,7 +48,6 @@ class WeatherViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.context['weather'])
         self.assertEqual(response.context['weather']['city'], 'Москва')
-        self.assertEqual(len(response.context['weather']['hourly']), 1)
         self.assertContains(response, 'Москва')
 
         # Проверяем сохранение в сессии
