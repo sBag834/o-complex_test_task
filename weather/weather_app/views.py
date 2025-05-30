@@ -87,7 +87,7 @@ def get_weather(lat, lon):
                 "latitude": lat,
                 "longitude": lon,
                 "hourly": "temperature_2m,weathercode",
-                "forecast_days": 1,
+                "forecast_days": 2,
                 "timezone": "auto"
             }
         )
@@ -101,11 +101,18 @@ def process_hourly_data(hourly):
     processed = []
     now = datetime.now()
     current_hour = now.hour
+    current_day = now.day
 
     for i in range(len(hourly['time'])):
         hour_time = datetime.fromisoformat(hourly['time'][i])
         # Показываем только будущие часы
-        if hour_time.hour >= current_hour:
+        if hour_time.hour >= current_hour and hour_time.day == current_day and len(processed) < 12:
+            processed.append({
+                'time': hour_time.strftime("%H:%M"),
+                'temperature': hourly['temperature_2m'][i],
+                'weathercode': hourly['weathercode'][i]
+            })
+        elif hour_time.day != current_day and hour_time.hour <= current_hour and len(processed) < 12:
             processed.append({
                 'time': hour_time.strftime("%H:%M"),
                 'temperature': hourly['temperature_2m'][i],
