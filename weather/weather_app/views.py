@@ -1,29 +1,29 @@
-import requests
-from django.shortcuts import render, redirect
-from django.contrib.sessions.backends.db import SessionStore
-from .utils import geocode_city, get_weather
-from .models import SearchHistory
+from django.shortcuts import render
 from django.http import JsonResponse
-from django.db.models import Count
+import requests
+from datetime import datetime
 
 
 def index(request):
-    # Проверяем последний город в сессии
-    last_city = request.session.get('last_city', None)
     weather_data = None
     error = None
+
+    # Получаем историю поиска из сессии
+    search_history = request.session.get('search_history', [])
 
     if request.method == 'POST':
         city_name = request.POST.get('city')
         if city_name:
-            # Сохраняем в историю
-            if request.session.session_key:
-                SearchHistory.objects.create(
-                    city=city_name,
-                    session_key=request.session.session_key
-                )
+            # Обновляем историю поиска
+            if city_name in search_history:
+                search_history.remove(city_name)  # Удаляем если уже есть
+            search_history.insert(0, city_name)  # Добавляем в начало
+            search_history = search_history[:3]  # Оставляем только 3 последних
 
-            # Получаем координаты
+            # Сохраняем в сессию
+            request.session['search_history'] = search_history
+
+            # Получаем координаты города
             geo_data = geocode_city(city_name)
             if not geo_data:
                 error = "Город не найден"
@@ -33,57 +33,82 @@ def index(request):
                     geo_data['latitude'],
                     geo_data['longitude']
                 )
-
                 if 'error' in weather:
                     error = weather['reason']
                 else:
                     weather_data = {
-                        'city': city_name,
-                        'temperature': weather['current_weather']['temperature'],
-                        'windspeed': weather['current_weather']['windspeed'],
-                        'weathercode': weather['current_weather']['weathercode'],
+                        'city': geo_data['name'],
+                        'hourly': process_hourly_data(weather['hourly'])
                     }
-                    # Сохраняем последний город
-                    request.session['last_city'] = city_name
-                    request.session.modified = True
 
     return render(request, 'index.html', {
-        'last_city': last_city,
         'weather': weather_data,
-        'error': error
+        'error': error,
+        'search_history': search_history  # Передаем историю в шаблон
     })
 
 
-def search_history_api(request):
-    if not request.session.session_key:
-        return JsonResponse([], safe=False)
-
-    # Статистика по городам
-    stats = SearchHistory.objects.filter(
-        session_key=request.session.session_key
-    ).values('city').annotate(
-        count=Count('id')
-    ).order_by('-count')
-
-    return JsonResponse(list(stats), safe=False)
-
-def autocomplete_cities(request):
-    term = request.GET.get('term', '')
-    response = requests.get(
-        "https://geocoding-api.open-meteo.com/v1/search",
-        params={"name": term, "count": 5}
-    )
-    results = response.json().get('results', [])
-    cities = [city['name'] for city in results]
-    return JsonResponse(cities, safe=False)
+def autocomplete(request):
+    term = request.GET.get('term')
+    if term:
+        # Выполняем запрос к API геокодинга
+        response = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": term, "count": 5, "language": "ru"}
+        )
+        results = response.json().get('results', [])
+        cities = [result['name'] for result in results]
+        return JsonResponse(cities, safe=False)
+    return JsonResponse([], safe=False)
 
 
-def search_history_view(request):
-    if not request.session.session_key:
-        return render(request, 'history.html', {'history': []})
+def geocode_city(name):
+    try:
+        response = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": name, "count": 1, "language": "ru"}
+        )
+        data = response.json()
+        if 'results' in data and data['results']:
+            return data['results'][0]
+        return None
+    except Exception as e:
+        print(f"Geocoding error: {e}")
+        return None
 
-    history = SearchHistory.objects.filter(
-        session_key=request.session.session_key
-    ).order_by('-timestamp')[:10]
 
-    return render(request, 'history.html', {'history': history})
+def get_weather(lat, lon):
+    try:
+        # Получаем прогноз на 24 часа
+        response = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "hourly": "temperature_2m,weathercode",
+                "forecast_days": 1,
+                "timezone": "auto"
+            }
+        )
+        return response.json()
+    except Exception as e:
+        return {'error': True, 'reason': str(e)}
+
+
+def process_hourly_data(hourly):
+    """Обрабатываем данные о погоде по часам"""
+    processed = []
+    now = datetime.now()
+    current_hour = now.hour
+
+    for i in range(len(hourly['time'])):
+        hour_time = datetime.fromisoformat(hourly['time'][i])
+        # Показываем только будущие часы
+        if hour_time.hour >= current_hour:
+            processed.append({
+                'time': hour_time.strftime("%H:%M"),
+                'temperature': hourly['temperature_2m'][i],
+                'weathercode': hourly['weathercode'][i]
+            })
+
+    return processed

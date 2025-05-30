@@ -1,25 +1,138 @@
-<form method="POST">
-    {% csrf_token %}
-    <input type="text"
-           id="city-input"
-           name="city"
-           placeholder="Введите город"
-           value="{{ last_city }}">
-    <button type="submit">Показать погоду</button>
-</form>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Прогноз погоды</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .weather-card {
+            transition: transform 0.3s ease;
+        }
+        .weather-card:hover {
+            transform: translateY(-5px);
+        }
+        .weather-icon {
+            font-size: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <h1 class="text-center mb-4">Прогноз погоды</h1>
 
-{% if weather %}
-<div class="weather-card">
-    <h2>{{ weather.city }}</h2>
-    <p>Температура: {{ weather.temperature }}°C</p>
-    <p>Скорость ветра: {{ weather.windspeed }} км/ч</p>
-</div>
-{% endif %}
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="input-group mb-3">
+                        <input type="text"
+                               id="city-input"
+                               name="city"
+                               class="form-control form-control-lg"
+                               placeholder="Введите город..."
+                               autocomplete="off"
+                               aria-label="Город">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            Показать
+                        </button>
+                    </div>
+                </form>
 
-<script>
-$(function() {
-    $("#city-input").autocomplete({
-        source: "{% url 'autocomplete' %}"
+                {% if search_history %}
+                <div class="card mb-4">
+                    <div class="card-body py-2">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2">Вы ранее искали:</span>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for city in search_history %}
+                                <button class="btn btn-sm btn-outline-secondary history-btn"
+                                        data-city="{{ city }}">
+                                    {{ city }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if error %}
+                <div class="alert alert-danger">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                {% if weather %}
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="h4 mb-0">{{ weather.city }}</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for hour in weather.hourly %}
+                            <div class="col-4 col-md-3 mb-3">
+                                <div class="card weather-card h-100">
+                                    <div class="card-body text-center">
+                                        <div class="text-muted small mb-2">{{ hour.time }}</div>
+                                        <div class="weather-icon mb-2">
+                                            {% if hour.weathercode == 0 %}
+                                                <i class="bi bi-sun text-warning"></i>
+                                            {% elif hour.weathercode == 1 or hour.weathercode == 2 %}
+                                                <i class="bi bi-cloud-sun text-secondary"></i>
+                                            {% elif hour.weathercode == 3 %}
+                                                <i class="bi bi-cloud text-secondary"></i>
+                                            {% elif hour.weathercode >= 45 and hour.weathercode <= 48 %}
+                                                <i class="bi bi-cloud-fog text-secondary"></i>
+                                            {% elif hour.weathercode >= 51 and hour.weathercode <= 67 %}
+                                                <i class="bi bi-cloud-rain text-primary"></i>
+                                            {% elif hour.weathercode >= 71 and hour.weathercode <= 77 %}
+                                                <i class="bi bi-snow text-info"></i>
+                                            {% elif hour.weathercode >= 80 and hour.weathercode <= 86 %}
+                                                <i class="bi bi-cloud-rain-heavy text-primary"></i>
+                                            {% elif hour.weathercode >= 95 and hour.weathercode <= 99 %}
+                                                <i class="bi bi-cloud-lightning text-danger"></i>
+                                            {% else %}
+                                                <i class="bi bi-question-circle"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div class="h5">{{ hour.temperature }}°C</div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключаем необходимые скрипты -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+    <script>
+    $(function() {
+        // Автодополнение городов
+        $("#city-input").autocomplete({
+            source: "{% url 'autocomplete' %}",
+            minLength: 2,
+            select: function(event, ui) {
+                $(this).val(ui.item.value);
+            }
+        });
+
+        // Обработка клика по кнопкам истории
+        $(".history-btn").click(function() {
+            const city = $(this).data('city');
+            $("#city-input").val(city);  // Вставляем город в поле ввода
+            $("form").submit();          // Автоматически отправляем форму
+        });
     });
-});
-</script>
+    </script>
+</body>
+</html>

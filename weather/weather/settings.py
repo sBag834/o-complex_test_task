@@ -54,7 +54,15 @@ MIDDLEWARE = [
 ]
 
 #Настройки приложения
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 7 #длительность хранения куки, в секундах
+LANGUAGE_CODE = 'ru-ru'
+TIME_ZONE = 'Europe/Moscow'
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = 'static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 
 ROOT_URLCONF = 'weather.urls'
